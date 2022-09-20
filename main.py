@@ -1,6 +1,6 @@
-from audioop import mul
 import os
 import json
+from re import X
 import timm  # torch image models (like huggingface library)
 import torch
 import random
@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 from transformers import AutoModel, AutoTokenizer
 from sklearn.model_selection import train_test_split
+
+from timm.data import resolve_data_config
+from timm.data.transforms_factory import create_transform
 
 from modules import custom_dataset, trainer
 from models import cv_model, nlp_model, multi_modal_classifier
@@ -28,12 +31,47 @@ def main():
     with open("./config/config.json", "r") as f:
         config = json.load(f)
     train = pd.read_csv("./data/train.csv")
+    num_labels = len(train["cat3"].drop_duplicates().tolist())
+    config["num_classes"] = num_labels
+    X_train, X_val, y_train, y_val = train_test_split(
+        train.drop(columns=["cat3"]),
+        train["cat3"],
+        test_size=0.1,
+        random_state=3307,
+        stratify=train["cat3"],
+    )
     test = pd.read_csv("./data/test.csv")
     nlp_m = nlp_model.NLPModel(AutoModel.from_pretrained(config["nlp_model"]), config)
     tokenizer = AutoTokenizer.from_pretrained(config["nlp_model"])
     cv_m = cv_model.CVModel(
         timm.create_model(config["cv_model"], pretrained=True), config
     )
+    cv_config = resolve_data_config({}, model=cv_m)
+    transform = create_transform(**cv_config)
+
     model = multi_modal_classifier.MultiModalClassifier(nlp_m, cv_m, config)
+    train_dataset = custom_dataset.CustomDataset(
+        tokenizer,
+        X_train["img_path"].tolist(),
+        X_train["overview"].tolist(),
+        transform,
+        config,
+        y_train.tolist(),
+    )
+    val_dataset = custom_dataset.CustomDataset(
+        tokenizer,
+        X_val["img_path"].tolist(),
+        X_val["overview"].tolist(),
+        transform,
+        config,
+        y_val.tolist(),
+    )
+    test_dataset = custom_dataset.CustomDataset(
+        tokenizer,
+        test["img_path"].tolist(),
+        test["overview"].tolist(),
+        transform,
+        config,
+    )
 
     return

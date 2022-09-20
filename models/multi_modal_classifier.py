@@ -2,8 +2,9 @@ import torch
 from torch import nn
 
 
-class MultiModalClassifier(nn):
+class MultiModalClassifier(nn.Module):
     def __init__(self, nlp_model, cv_model, config):
+        super(MultiModalClassifier, self).__init__()
         self.nlp_model = nlp_model
         self.cv_model = cv_model
         self.layer = nn.Linear(256, config["num_classes"])
