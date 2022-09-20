@@ -25,18 +25,20 @@ class CustomDataset(Dataset):
             truncation=True,
             return_tensors="pt",
         )
+        text_inputs = text_dict["input_ids"].squeeze(0)
+        text_attention = text_dict["attention_mask"].squeeze(0)
 
         # Image
         img_path = "./data/" + self.img_path_list[index][1:]
         image = Image.open(img_path).convert("RGB")
-        image_tensor = self.transforms(image).unsqueeze(0)
+        image_tensor = self.transforms(image)
 
         # Label
         if self.label_list:
             label = self.label_list[index]
-            return image_tensor, text_dict, label
+            return image_tensor, text_inputs, text_attention, label
         else:
-            return image, text_dict
+            return image, text_inputs, text_attention
 
     def __len__(self):
         return len(self.img_path_list)
