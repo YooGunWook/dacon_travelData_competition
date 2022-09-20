@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 
 class MultiModalClassifier(nn):
@@ -9,5 +8,9 @@ class MultiModalClassifier(nn):
         self.cv_model = cv_model
         self.layer = nn.Linear(256, config["num_classes"])
 
-    def forward(inputs):
-        return
+    def forward(self, nlp_inputs, cv_inputs):
+        nlp_output = self.nlp_model(**nlp_inputs)
+        cv_output = self.cv_model(cv_inputs)
+        concat_output = torch.cat([nlp_output, cv_output], dim=1)
+        output = self.layer(concat_output)
+        return output

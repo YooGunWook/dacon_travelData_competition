@@ -1,20 +1,18 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 
-class CVModel(nn):
+class CVModel(nn.Module):
     def __init__(self, model, config):
+        super(CVModel, self).__init__()
         self.model = model
         self.config = config
-        self.encoder_layer = nn.TransformerEncoderLayer(
-            self.config["d_model"], self.config["n_head"]
-        )
-        self.transformer = nn.TransformerEncoder(
-            self.encoder_layer, num_layers=self.config["num_layers"]
-        )
+        self.avgpool = nn.AvgPool2d(self.config["kernel_size"])
+        self.dropout = nn.Dropout2d(self.config["dropout"])
+        self.linear = nn.Linear(self.config["cv_dim"], 128)
 
     def forward(self, inputs):
-        outputs = self.model(inputs)
-        outputs = self.transformer(outputs)  # mask 적용 필요함
+        outputs = self.model.forward_features(inputs)
+        outputs = torch.flatten(self.dropout(self.avgpool(outputs)), start_dim=1)
+        outputs = self.linear(outputs)
         return outputs

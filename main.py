@@ -1,5 +1,7 @@
+from audioop import mul
 import os
-import timm # torch image models (like huggingface library)
+import json
+import timm  # torch image models (like huggingface library)
 import torch
 import random
 import numpy as np
@@ -23,7 +25,15 @@ def seed_everything(seed):
 
 def main():
     seed_everything(3307)
+    with open("./config/config.json", "r") as f:
+        config = json.load(f)
     train = pd.read_csv("./data/train.csv")
     test = pd.read_csv("./data/test.csv")
+    nlp_m = nlp_model.NLPModel(AutoModel.from_pretrained(config["nlp_model"]), config)
+    tokenizer = AutoTokenizer.from_pretrained(config["nlp_model"])
+    cv_m = cv_model.CVModel(
+        timm.create_model(config["cv_model"], pretrained=True), config
+    )
+    model = multi_modal_classifier.MultiModalClassifier(nlp_m, cv_m, config)
 
     return
