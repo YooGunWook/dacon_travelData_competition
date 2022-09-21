@@ -1,6 +1,5 @@
 import os
 import json
-from re import X
 import timm  # torch image models (like huggingface library)
 import torch
 import random
@@ -26,7 +25,8 @@ def seed_everything(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
 
-def test_model(model, test_dataloader, device = None):
+
+def test_model(model, test_dataloader, device=None):
     model.eval()
     pred_list = []
 
@@ -42,15 +42,30 @@ def test_model(model, test_dataloader, device = None):
 
     return pred_list
 
+
 def main():
     seed_everything(3307)
     with open("./config/config.json", "r") as f:
         config = json.load(f)
     train = pd.read_csv("./data/train.csv")
     num_labels = len(train["cat3"].drop_duplicates().tolist())
-    label_to_id = {
-        label: i for i, label in enumerate(train["cat3"].drop_duplicates().tolist())
-    }
+    if "idx_to_label.json" not in os.listdir("./config"):
+        id_to_label = {
+            i: label for i, label in enumerate(train["cat3"].drop_duplicates().tolist())
+        }
+        with open("./config/idx_to_label.json", "w") as f:
+            json.dump(id_to_label, f)
+        label_to_id = {
+            label: i for i, label in enumerate(train["cat3"].drop_duplicates().tolist())
+        }
+        with open("./config/label_to_idx.json", "w") as f:
+            json.dump(label_to_id, f)
+    else:
+        with open("./config/idx_to_label.json", "r") as f:
+            id_to_label = json.load(f)
+        with open("./config/label_to_idx.json", "w") as f:
+            label_to_id = json.load(f)
+
     train["cat3"] = train["cat3"].apply(lambda x: label_to_id[x])
     config["num_classes"] = num_labels
     X_train, X_val, y_train, y_val = train_test_split(
@@ -60,7 +75,7 @@ def main():
         random_state=3307,
         stratify=train["cat3"],
     )
-    device = torch.device("cuda")
+    device = torch.device("cpu")
     test = pd.read_csv("./data/test.csv")
     nlp_m = nlp_model.NLPModel(AutoModel.from_pretrained(config["nlp_model"]), config)
     tokenizer = AutoTokenizer.from_pretrained(config["nlp_model"])
@@ -100,8 +115,9 @@ def main():
     valid_dataloader = DataLoader(
         val_dataset, batch_size=config["batch_size"], shuffle=False
     )
-    test_dataloader = DataLoader(test_dataset, batch_size=config["batch_size"], shuffle=False)
-
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=config["batch_size"], shuffle=False
+    )
     train_model = trainer.Trainer(
         model, train_dataloader, valid_dataloader, config, device
     )
@@ -109,12 +125,11 @@ def main():
     train_model.train()
 
     model.load_state_dict(torch.load("./model/model_res.pt"))
+    model.to(device)
     test_res = test_model(model, test_dataloader, device)
     res_data = pd.read_csv("./data/sample_submission.csv")
     res_data["cat3"] = test_res
-    res_data.to_csv("res.csv",index=False)
-
-
+    res_data.to_csv("res.csv", index=False)
 
 
 if __name__ == "__main__":
