@@ -13,6 +13,9 @@ class NLPModel(nn.Module):
         self.transformer = nn.TransformerEncoder(
             self.encoder_layer, num_layers=self.config["num_layers"]
         )
+        self.relu = nn.LeakyReLU()
+        self.batch = nn.BatchNorm1d(self.config["d_model"])
+        self.dropout = nn.Dropout(0.3)
         self.linear = nn.Linear(self.config["d_model"], 128)
 
     def forward(self, inputs):
@@ -25,5 +28,6 @@ class NLPModel(nn.Module):
             head_attention.append(fin_attn.expand(self.config["n_head"], -1, -1))
         head_attention = torch.cat(head_attention)
         outputs = self.transformer(outputs, mask=head_attention)[:, 0, :]  # mask 적용 필요함
+        outputs = self.dropout(self.relu(self.batch(outputs)))
         outputs = self.linear(outputs)
         return outputs
