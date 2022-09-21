@@ -45,7 +45,7 @@ def main():
         random_state=3307,
         stratify=train["cat3"],
     )
-    device = torch.device("cpu")
+    device = torch.device("cuda")
     test = pd.read_csv("./data/test.csv")
     nlp_m = nlp_model.NLPModel(AutoModel.from_pretrained(config["nlp_model"]), config)
     tokenizer = AutoTokenizer.from_pretrained(config["nlp_model"])
