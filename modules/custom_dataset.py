@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset
 from PIL import Image
+import tqdm
 
 
 class CustomDataset(Dataset):
@@ -13,32 +14,40 @@ class CustomDataset(Dataset):
         self.transforms = transforms
         self.config = config
 
-    def __getitem__(self, index):
+        self.img_data = []
+        self.text_data = []
 
         # NLP
-        text = self.text_list[index]
-        text_dict = self.tokenizer.encode_plus(
-            text,
-            add_special_tokens=True,
-            max_length=self.config["max_length"],
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-        text_inputs = text_dict["input_ids"].squeeze(0)
-        text_attention = text_dict["attention_mask"].squeeze(0)
+        for text in tqdm.tqdm(self.text_list):
+            text_dict = self.tokenizer.encode_plus(
+                text,
+                add_special_tokens=True,
+                max_length=self.config["max_length"],
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
+            text_inputs = text_dict["input_ids"].squeeze(0)
+            text_attention = text_dict["attention_mask"].squeeze(0)
+            self.text_data.append([text_inputs, text_attention])
 
-        # Image
-        img_path = "./data/" + self.img_path_list[index][1:]
-        image = Image.open(img_path).convert("RGB")
-        image_tensor = self.transforms(image)
+        # image
+        for t_img_path in tqdm.tqdm(self.img_path_list):
+            img_path = "./data/" + t_img_path[1:]
+            image = Image.open(img_path).convert("RGB")
+            image_tensor = self.transforms(image)
+            self.img_data.append(image_tensor)
 
+    def __getitem__(self, index):
+
+        image_tensor = self.img_data[index]
+        text_inputs, text_attention = self.text_data[index]
         # Label
         if self.label_list:
             label = self.label_list[index]
             return image_tensor, text_inputs, text_attention, label
         else:
-            return image, text_inputs, text_attention
+            return image_tensor, text_inputs, text_attention
 
     def __len__(self):
         return len(self.img_path_list)

@@ -5,9 +5,11 @@ import torch
 import random
 import numpy as np
 import pandas as pd
+import pickle
 from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer
 from sklearn.model_selection import train_test_split
+
 
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
@@ -53,17 +55,17 @@ def main():
         id_to_label = {
             i: label for i, label in enumerate(train["cat3"].drop_duplicates().tolist())
         }
-        with open("./config/idx_to_label.json", "w") as f:
-            json.dump(id_to_label, f)
+        with open("./config/idx_to_label.json", "w", encoding="utf-8") as f:
+            json.dump(id_to_label, f, ensure_ascii=False)
         label_to_id = {
             label: i for i, label in enumerate(train["cat3"].drop_duplicates().tolist())
         }
-        with open("./config/label_to_idx.json", "w") as f:
-            json.dump(label_to_id, f)
+        with open("./config/label_to_idx.json", "w", encoding="utf-8") as f:
+            json.dump(label_to_id, f, ensure_ascii=False)
     else:
-        with open("./config/idx_to_label.json", "r") as f:
+        with open("./config/idx_to_label.json", "r", encoding="utf-8") as f:
             id_to_label = json.load(f)
-        with open("./config/label_to_idx.json", "w") as f:
+        with open("./config/label_to_idx.json", "r", encoding="utf-8") as f:
             label_to_id = json.load(f)
 
     train["cat3"] = train["cat3"].apply(lambda x: label_to_id[x])
@@ -86,22 +88,22 @@ def main():
     transform = create_transform(**cv_config)
 
     model = multi_modal_classifier.MultiModalClassifier(nlp_m, cv_m, config)
-    train_dataset = custom_dataset.CustomDataset(
-        tokenizer,
-        X_train["img_path"].tolist(),
-        X_train["overview"].tolist(),
-        transform,
-        config,
-        y_train.tolist(),
-    )
-    val_dataset = custom_dataset.CustomDataset(
-        tokenizer,
-        X_val["img_path"].tolist(),
-        X_val["overview"].tolist(),
-        transform,
-        config,
-        y_val.tolist(),
-    )
+    # train_dataset = custom_dataset.CustomDataset(
+    #     tokenizer,
+    #     X_train["img_path"].tolist(),
+    #     X_train["overview"].tolist(),
+    #     transform,
+    #     config,
+    #     y_train.tolist(),
+    # )
+    # val_dataset = custom_dataset.CustomDataset(
+    #     tokenizer,
+    #     X_val["img_path"].tolist(),
+    #     X_val["overview"].tolist(),
+    #     transform,
+    #     config,
+    #     y_val.tolist(),
+    # )
     test_dataset = custom_dataset.CustomDataset(
         tokenizer,
         test["img_path"].tolist(),
@@ -109,27 +111,29 @@ def main():
         transform,
         config,
     )
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=config["batch_size"], shuffle=True
-    )
-    valid_dataloader = DataLoader(
-        val_dataset, batch_size=config["batch_size"], shuffle=False
-    )
-    test_dataloader = DataLoader(
-        test_dataset, batch_size=config["batch_size"], shuffle=False
-    )
-    train_model = trainer.Trainer(
-        model, train_dataloader, valid_dataloader, config, device
-    )
-    train_model.build_model()
-    train_model.train()
+    with open("test_dataset.pkl", "wb") as f:
+        pickle.dump(test_dataset, f)
+    # train_dataloader = DataLoader(
+    #     train_dataset, batch_size=config["batch_size"], shuffle=True
+    # )
+    # valid_dataloader = DataLoader(
+    #     val_dataset, batch_size=config["batch_size"], shuffle=False
+    # )
+    # test_dataloader = DataLoader(
+    #     test_dataset, batch_size=config["batch_size"], shuffle=False
+    # )
+    # train_model = trainer.Trainer(
+    #     model, train_dataloader, valid_dataloader, config, device
+    # )
+    # train_model.build_model()
+    # train_model.train()
 
-    model.load_state_dict(torch.load("./model/model_res.pt"))
-    model.to(device)
-    test_res = test_model(model, test_dataloader, device)
-    res_data = pd.read_csv("./data/sample_submission.csv")
-    res_data["cat3"] = test_res
-    res_data.to_csv("res.csv", index=False)
+    # model.load_state_dict(torch.load("./model/model_res.pt"))
+    # model.to(device)
+    # test_res = test_model(model, test_dataloader, device)
+    # res_data = pd.read_csv("./data/sample_submission.csv")
+    # res_data["cat3"] = test_res
+    # res_data.to_csv("res.csv", index=False)
 
 
 if __name__ == "__main__":
