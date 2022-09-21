@@ -26,6 +26,21 @@ def seed_everything(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
 
+def test_model(model, test_dataloader, device = None):
+    model.eval()
+    pred_list = []
+
+    for batch in test_dataloader:
+        cv_batch = batch[0].to(device)
+        nlp_inputs = batch[1].to(device)
+        nlp_attentions = batch[2].to(device)
+        batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
+        with torch.no_grad():
+            outputs = model(batch_dict, cv_batch)
+        pred = torch.argmax(outputs).flatten().detach().cpu().numpy().tolist()
+        pred_list += pred
+
+    return pred_list
 
 def main():
     seed_everything(3307)
@@ -85,12 +100,21 @@ def main():
     valid_dataloader = DataLoader(
         val_dataset, batch_size=config["batch_size"], shuffle=False
     )
+    test_dataloader = DataLoader(test_dataset, batch_size=config["batch_size"], shuffle=False)
 
     train_model = trainer.Trainer(
         model, train_dataloader, valid_dataloader, config, device
     )
     train_model.build_model()
     train_model.train()
+
+    model.load_state_dict(torch.load("./model/model_res.pt"))
+    test_res = test_model(model, test_dataloader, device)
+    res_data = pd.read_csv("./data/sample_submission.csv")
+    res_data["cat3"] = test_res
+    res_data.to_csv("res.csv",index=False)
+
+
 
 
 if __name__ == "__main__":
