@@ -32,11 +32,13 @@ class Trainer(object):
 
     def train(self):
         best_val_loss = 1e10
+        best_f1_score = -1e10
         scaler = GradScaler()
         self.model.zero_grad()
-        is_save = False
+        loss_is_save = False
+        f1_is_save = False
         print(
-            f"{'Epoch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val F1':^9} | {'is_save':^9} "
+            f"{'Epoch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val F1':^9} | {'loss_is_save':^9} | {'f1_is_save':^9} "
         )
         for epoch in range(self.config["epoch"]):
             self.model.train()
@@ -63,12 +65,17 @@ class Trainer(object):
             val_loss, val_f1 = self.eval()
             if val_loss <= best_val_loss:
                 best_val_loss = val_loss
-                is_save = True
-                torch.save(self.model.state_dict(), "./model/model_res.pt")
+                loss_is_save = True
+                torch.save(self.model.state_dict(), "./model/model_loss_res.pt")
+            if val_f1 >= best_f1_score:
+                best_f1_score = val_f1
+                f1_is_save = True
+                torch.save(self.model.state_dict(), "./model/model_f1_res.pt")
             print(
-                f"{epoch + 1:^7} | {t_loss / len(self.train_loader):^12} | {val_loss:^10} | {val_f1:^9} | {is_save:^9} "
+                f"{epoch + 1:^7} | {t_loss / len(self.train_loader):^12} | {val_loss:^10} | {val_f1:^9} | {loss_is_save:^9} | {f1_is_save:^9} "
             )
-            is_save = False
+            loss_is_save = False
+            f1_is_save = False
         return
 
     def eval(self):
@@ -87,7 +94,9 @@ class Trainer(object):
                 outputs = self.model(batch_dict, cv_batch)
             loss = self.loss(outputs, labels)
             fin_loss += loss.item()
-            pred = torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()
+            pred = (
+                torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()
+            )
             labels = labels.flatten().detach().cpu().numpy().tolist()
             pred_list += pred
             label_list += labels

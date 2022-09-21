@@ -6,6 +6,7 @@ import random
 import numpy as np
 import pandas as pd
 import pickle
+import tqdm
 from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer
 from sklearn.model_selection import train_test_split
@@ -32,14 +33,14 @@ def test_model(model, test_dataloader, device=None):
     model.eval()
     pred_list = []
 
-    for batch in test_dataloader:
+    for batch in tqdm.tqdm(test_dataloader):
         cv_batch = batch[0].to(device)
         nlp_inputs = batch[1].to(device)
         nlp_attentions = batch[2].to(device)
         batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
         with torch.no_grad():
             outputs = model(batch_dict, cv_batch)
-        pred = torch.argmax(outputs).flatten().detach().cpu().numpy().tolist()
+        pred = torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()
         pred_list += pred
 
     return pred_list
@@ -77,7 +78,7 @@ def main():
         random_state=3307,
         stratify=train["cat3"],
     )
-    device = torch.device("cpu")
+    device = torch.device("cuda")
     test = pd.read_csv("./data/test.csv")
     nlp_m = nlp_model.NLPModel(AutoModel.from_pretrained(config["nlp_model"]), config)
     tokenizer = AutoTokenizer.from_pretrained(config["nlp_model"])
@@ -88,57 +89,75 @@ def main():
     transform = create_transform(**cv_config)
 
     model = multi_modal_classifier.MultiModalClassifier(nlp_m, cv_m, config)
-    train_dataset = custom_dataset.CustomDataset(
-        tokenizer,
-        X_train["img_path"].tolist(),
-        X_train["overview"].tolist(),
-        transform,
-        config,
-        y_train.tolist(),
-    )
-    val_dataset = custom_dataset.CustomDataset(
-        tokenizer,
-        X_val["img_path"].tolist(),
-        X_val["overview"].tolist(),
-        transform,
-        config,
-        y_val.tolist(),
-    )
-    test_dataset = custom_dataset.CustomDataset(
-        tokenizer,
-        test["img_path"].tolist(),
-        test["overview"].tolist(),
-        transform,
-        config,
-    )
-    if "test_dataset.pkl" not in os.listdir("./data"):
+    if "train_dataset.pkl" not in os.listdir("./data"):
+        print("need to make new dataset")
+        train_dataset = custom_dataset.CustomDataset(
+            tokenizer,
+            X_train["img_path"].tolist(),
+            X_train["overview"].tolist(),
+            transform,
+            config,
+            y_train.tolist(),
+        )
+        val_dataset = custom_dataset.CustomDataset(
+            tokenizer,
+            X_val["img_path"].tolist(),
+            X_val["overview"].tolist(),
+            transform,
+            config,
+            y_val.tolist(),
+        )
+        test_dataset = custom_dataset.CustomDataset(
+            tokenizer,
+            test["img_path"].tolist(),
+            test["overview"].tolist(),
+            transform,
+            config,
+        )
         with open("./data/train_dataset.pkl", "wb") as f:
             pickle.dump(train_dataset, f)
         with open("./data/val_dataset.pkl", "wb") as f:
             pickle.dump(val_dataset, f)
         with open("./data/test_dataset.pkl", "wb") as f:
             pickle.dump(test_dataset, f)
-    # train_dataloader = DataLoader(
-    #     train_dataset, batch_size=config["batch_size"], shuffle=True
-    # )
-    # valid_dataloader = DataLoader(
-    #     val_dataset, batch_size=config["batch_size"], shuffle=False
-    # )
-    # test_dataloader = DataLoader(
-    #     test_dataset, batch_size=config["batch_size"], shuffle=False
-    # )
-    # train_model = trainer.Trainer(
-    #     model, train_dataloader, valid_dataloader, config, device
-    # )
-    # train_model.build_model()
-    # train_model.train()
+    else:
+        print("datasets are already exist.")
+        with open("./data/train_dataset.pkl", "rb") as f:
+            train_dataset = pickle.load(f)
+        with open("./data/val_dataset.pkl", "rb") as f:
+            val_dataset = pickle.load(f)
+        with open("./data/test_dataset.pkl", "rb") as f:
+            test_dataset = pickle.load(f)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=config["batch_size"], shuffle=True
+    )
+    valid_dataloader = DataLoader(
+        val_dataset, batch_size=config["batch_size"], shuffle=False
+    )
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=config["batch_size"], shuffle=False
+    )
+    train_model = trainer.Trainer(
+        model, train_dataloader, valid_dataloader, config, device
+    )
+    train_model.build_model()
+    train_model.train()
 
-    # model.load_state_dict(torch.load("./model/model_res.pt"))
-    # model.to(device)
-    # test_res = test_model(model, test_dataloader, device)
-    # res_data = pd.read_csv("./data/sample_submission.csv")
-    # res_data["cat3"] = test_res
-    # res_data.to_csv("res.csv", index=False)
+    model.load_state_dict(torch.load("./model/model_loss_res.pt"))
+    model.to(device)
+    res_data = pd.read_csv("./data/sample_submission.csv")
+    test_loss_res = test_model(model, test_dataloader, device)
+    test_loss_res = [id_to_label[str(i)] for i in test_loss_res]
+    res_data["cat3"] = test_loss_res
+    res_data.to_csv("res_loss.csv", index=False)
+    
+    model.load_state_dict(torch.load("./model/model_f1_res.pt"))
+    test_f1_res = test_model(model, test_dataloader, device)
+    test_f1_res = [id_to_label[str(i)] for i in test_f1_res]
+    res_data["cat3"] = test_f1_res
+    res_data.to_csv("res_f1.csv", index=False)
+    
+    
 
 
 if __name__ == "__main__":
