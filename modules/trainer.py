@@ -4,7 +4,7 @@ from torch.optim import AdamW
 from torch.nn import functional as F
 from torch.cuda.amp import GradScaler, autocast
 from transformers import get_linear_schedule_with_warmup
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, label_ranking_loss
 
 
 class Trainer(object):
@@ -71,7 +71,6 @@ class Trainer(object):
             is_save = False
         return
 
-
     def eval(self):
         self.model.eval()
         pred_list = []
@@ -88,8 +87,8 @@ class Trainer(object):
                 outputs = self.model(batch_dict, cv_batch)
             loss = self.loss(outputs, labels)
             fin_loss += loss.item()
-            pred = torch.argmax(outputs).flatten().detach().cpu().numpy().tolist()
-            labels = labels.detach().cpu().numpy().tolist()
+            pred = torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()
+            labels = labels.flatten().detach().cpu().numpy().tolist()
             pred_list += pred
             label_list += labels
 
