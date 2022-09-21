@@ -71,6 +71,7 @@ class Trainer(object):
             is_save = False
         return
 
+
     def eval(self):
         self.model.eval()
         pred_list = []
@@ -82,7 +83,7 @@ class Trainer(object):
             nlp_inputs = batch[1].to(self.device)
             nlp_attentions = batch[2].to(self.device)
             batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
-            labels = batch[2].to(self.device)
+            labels = batch[3].to(self.device)
             with torch.no_grad():
                 outputs = self.model(batch_dict, cv_batch)
             loss = self.loss(outputs, labels)
