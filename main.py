@@ -5,7 +5,6 @@ import torch
 import random
 import numpy as np
 import pandas as pd
-import pickle
 import tqdm
 from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer
@@ -93,48 +92,29 @@ def main():
     transform = create_transform(**cv_config)
 
     model = multi_modal_classifier.MultiModalClassifier(nlp_m, cv_m, config)
-    if "train_dataset.pkl" not in os.listdir("../../../data"):
-        print("need to make new dataset")
-        train_dataset = custom_dataset.CustomDataset(
-            tokenizer,
-            X_train["img_path"].tolist(),
-            X_train["overview"].tolist(),
-            transform,
-            config,
-            y_train.tolist(),
-        )
-        val_dataset = custom_dataset.CustomDataset(
-            tokenizer,
-            X_val["img_path"].tolist(),
-            X_val["overview"].tolist(),
-            transform,
-            config,
-            y_val.tolist(),
-        )
-        test_dataset = custom_dataset.CustomDataset(
-            tokenizer,
-            test["img_path"].tolist(),
-            test["overview"].tolist(),
-            transform,
-            config,
-        )
-        with open("../../../data/train_dataset.pkl", "wb") as f:
-            pickle.dump(train_dataset, f)
-        with open("../../../data/val_dataset.pkl", "wb") as f:
-            pickle.dump(val_dataset, f)
-        with open("../../../data/test_dataset.pkl", "wb") as f:
-            pickle.dump(test_dataset, f)
-    else:
-        print("datasets are already exist.")
-        with open("../../../data/train_dataset.pkl", "rb") as f:
-            train_dataset = pickle.load(f)
-        print("train dataset")
-        with open("../../../data/val_dataset.pkl", "rb") as f:
-            val_dataset = pickle.load(f)
-        print("val dataset")
-        with open("../../../data/test_dataset.pkl", "rb") as f:
-            test_dataset = pickle.load(f)
-        print("test dataset")
+    train_dataset = custom_dataset.CustomDataset(
+        tokenizer,
+        X_train["img_path"].tolist(),
+        X_train["overview"].tolist(),
+        transform,
+        config,
+        y_train.tolist(),
+    )
+    val_dataset = custom_dataset.CustomDataset(
+        tokenizer,
+        X_val["img_path"].tolist(),
+        X_val["overview"].tolist(),
+        transform,
+        config,
+        y_val.tolist(),
+    )
+    test_dataset = custom_dataset.CustomDataset(
+        tokenizer,
+        test["img_path"].tolist(),
+        test["overview"].tolist(),
+        transform,
+        config,
+    )
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=config["batch_size"],
