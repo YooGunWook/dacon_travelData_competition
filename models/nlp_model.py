@@ -63,8 +63,8 @@ class NLPModel(nn.Module):
             self.encoder_layer, num_layers=self.config["num_layers"]
         )
 
-        self.linear = nn.Linear(self.config["d_model"], 128)
-        self.textcnn = TextCNN(self.config["d_model"], )
+#         self.linear = nn.Linear(self.config["d_model"], 128)
+        self.textcnn = TextCNN(self.config["d_model"], [2,3,4,5], 256, 0.3)
 
     def forward(self, inputs):
         outputs = self.model(**inputs)["last_hidden_state"]
@@ -75,6 +75,7 @@ class NLPModel(nn.Module):
             fin_attn = attention_mask[i] * tmp_attn
             head_attention.append(fin_attn.expand(self.config["n_head"], -1, -1))
         head_attention = torch.cat(head_attention)
-        outputs = self.transformer(outputs, mask=head_attention)[:, 0, :]  # mask 적용 필요함
-        outputs = self.linear(outputs)
+#         outputs = self.transformer(outputs, mask=head_attention)[:, 0, :]
+        outputs = self.transformer(outputs, mask=head_attention)
+        outputs, _ = self.textcnn(outputs)
         return outputs
