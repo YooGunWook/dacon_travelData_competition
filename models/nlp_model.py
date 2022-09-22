@@ -5,6 +5,7 @@ from torch import nn
 #########################          TOWER          #########################
 class TextCNN(nn.Module):
     def __init__(self, embedding_dim, kernel_list, num_filters, num_classes, drop_rate):
+        super(TextCNN, self).__init__()
         """Text Classification with CNN
 
         Args:
