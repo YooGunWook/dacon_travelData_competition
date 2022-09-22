@@ -4,7 +4,7 @@ from torch import nn
 
 #########################          TOWER          #########################
 class TextCNN(nn.Module):
-    def __init__(self, embedding_dim, kernel_list, num_filters, num_classes, drop_rate):
+    def __init__(self, embedding_dim, kernel_list, num_filters, drop_rate):
         super(TextCNN, self).__init__()
         """Text Classification with CNN
 
@@ -20,7 +20,6 @@ class TextCNN(nn.Module):
         self.embedding_dim = embedding_dim
         self.kernel_list = kernel_list
         self.num_filters = num_filters
-        self.num_classes = num_classes
         self.conv = nn.ModuleList(
             [
                 nn.Conv1d(
@@ -39,7 +38,7 @@ class TextCNN(nn.Module):
             ]
         )
         self.dropout = nn.Dropout(drop_rate)
-        self.fc = nn.Linear(len(kernel_list) * num_filters, num_classes)
+        self.fc = nn.Linear(len(kernel_list) * num_filters, 128)
 
     def forward(self, x):
         x = x.transpose(1, 2)
@@ -63,10 +62,9 @@ class NLPModel(nn.Module):
         self.transformer = nn.TransformerEncoder(
             self.encoder_layer, num_layers=self.config["num_layers"]
         )
-        self.relu = nn.LeakyReLU()
-        self.batch = nn.BatchNorm1d(self.config["d_model"])
-        self.dropout = nn.Dropout(0.3)
+
         self.linear = nn.Linear(self.config["d_model"], 128)
+        self.textcnn = TextCNN(self.config["d_model"], )
 
     def forward(self, inputs):
         outputs = self.model(**inputs)["last_hidden_state"]
@@ -78,6 +76,5 @@ class NLPModel(nn.Module):
             head_attention.append(fin_attn.expand(self.config["n_head"], -1, -1))
         head_attention = torch.cat(head_attention)
         outputs = self.transformer(outputs, mask=head_attention)[:, 0, :]  # mask 적용 필요함
-        outputs = self.dropout(self.relu(self.batch(outputs)))
         outputs = self.linear(outputs)
         return outputs
