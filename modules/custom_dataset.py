@@ -1,5 +1,7 @@
-from torch.utils.data import Dataset
+import re
+import pickle
 from PIL import Image
+from torch.utils.data import Dataset
 
 
 class CustomDataset(Dataset):
@@ -12,11 +14,22 @@ class CustomDataset(Dataset):
         self.label_list = label_list
         self.transforms = transforms
         self.config = config
+        self.s_p = re.compile("\s+")
+        self.w_p = re.compile("<.*?>|\(.*?\)")
+        with open("./t_list.pkl", "rb") as f:
+            self.t_list = pickle.load(f)
+
+    def preprocessing(self, text):
+        text = self.s_p.sub(" ", self.w_p.sub("", text))
+        for t in self.t_list:
+            text = text.replace(t, "")
+        return self.s_p.sub(" ", self.w_p.sub("", text))
 
     def __getitem__(self, index):
 
         # NLP
         text = self.text_list[index]
+        text = self.preprocessing(text)
         text_dict = self.tokenizer.encode_plus(
             text,
             add_special_tokens=True,
