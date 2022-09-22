@@ -18,6 +18,10 @@ from timm.data.transforms_factory import create_transform
 from modules import custom_dataset, trainer
 from models import cv_model, nlp_model, multi_modal_classifier
 
+import warnings
+
+warnings.filterwarnings(action="ignore")
+
 
 def seed_everything(seed):
     random.seed(seed)
@@ -89,7 +93,7 @@ def main():
     transform = create_transform(**cv_config)
 
     model = multi_modal_classifier.MultiModalClassifier(nlp_m, cv_m, config)
-    if "train_dataset.pkl" not in os.listdir("./data"):
+    if "train_dataset.pkl" not in os.listdir("../../../data"):
         print("need to make new dataset")
         train_dataset = custom_dataset.CustomDataset(
             tokenizer,
@@ -114,28 +118,43 @@ def main():
             transform,
             config,
         )
-        with open("./data/train_dataset.pkl", "wb") as f:
+        with open("../../../data/train_dataset.pkl", "wb") as f:
             pickle.dump(train_dataset, f)
-        with open("./data/val_dataset.pkl", "wb") as f:
+        with open("../../../data/val_dataset.pkl", "wb") as f:
             pickle.dump(val_dataset, f)
-        with open("./data/test_dataset.pkl", "wb") as f:
+        with open("../../../data/test_dataset.pkl", "wb") as f:
             pickle.dump(test_dataset, f)
     else:
         print("datasets are already exist.")
-        with open("./data/train_dataset.pkl", "rb") as f:
+        with open("../../../data/train_dataset.pkl", "rb") as f:
             train_dataset = pickle.load(f)
-        with open("./data/val_dataset.pkl", "rb") as f:
+        print("train dataset")
+        with open("../../../data/val_dataset.pkl", "rb") as f:
             val_dataset = pickle.load(f)
-        with open("./data/test_dataset.pkl", "rb") as f:
+        print("val dataset")
+        with open("../../../data/test_dataset.pkl", "rb") as f:
             test_dataset = pickle.load(f)
+        print("test dataset")
     train_dataloader = DataLoader(
-        train_dataset, batch_size=config["batch_size"], shuffle=True
+        train_dataset,
+        batch_size=config["batch_size"],
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
     )
     valid_dataloader = DataLoader(
-        val_dataset, batch_size=config["batch_size"], shuffle=False
+        val_dataset,
+        batch_size=config["batch_size"],
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,
     )
     test_dataloader = DataLoader(
-        test_dataset, batch_size=config["batch_size"], shuffle=False
+        test_dataset,
+        batch_size=config["batch_size"],
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,
     )
     train_model = trainer.Trainer(
         model, train_dataloader, valid_dataloader, config, device
@@ -150,14 +169,12 @@ def main():
     test_loss_res = [id_to_label[str(i)] for i in test_loss_res]
     res_data["cat3"] = test_loss_res
     res_data.to_csv("res_loss.csv", index=False)
-    
+
     model.load_state_dict(torch.load("./model/model_f1_res.pt"))
     test_f1_res = test_model(model, test_dataloader, device)
     test_f1_res = [id_to_label[str(i)] for i in test_f1_res]
     res_data["cat3"] = test_f1_res
     res_data.to_csv("res_f1.csv", index=False)
-    
-    
 
 
 if __name__ == "__main__":
