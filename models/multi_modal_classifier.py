@@ -9,13 +9,12 @@ class MultiModalClassifier(nn.Module):
         self.cv_model = cv_model
         self.layer = nn.Linear(256, config["num_classes"])
         self.relu = nn.LeakyReLU()
-        self.batch = nn.BatchNorm1d(256)
         self.dropout = nn.Dropout(0.3)
 
     def forward(self, nlp_inputs, cv_inputs):
         nlp_output = self.nlp_model(nlp_inputs)
         cv_output = self.cv_model(cv_inputs)
-        concat_output = self.batch(torch.cat([nlp_output, cv_output], dim=1))
+        concat_output = torch.cat([nlp_output, cv_output], dim=1)
         concat_output = self.dropout(self.relu(concat_output))
         output = self.layer(concat_output)
         return output
