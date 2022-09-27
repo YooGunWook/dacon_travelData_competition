@@ -1,10 +1,10 @@
 import torch
 from torch import nn
-from torch.optim import AdamW
+from torch.optim import AdamW, lr_scheduler
 from torch.nn import functional as F
 from torch.cuda.amp import GradScaler, autocast
 from transformers import get_linear_schedule_with_warmup
-from sklearn.metrics import f1_score, label_ranking_loss
+from sklearn.metrics import f1_score
 
 
 class Trainer(object):
@@ -24,11 +24,19 @@ class Trainer(object):
             lr=self.config["learning_rate"],
             weight_decay=self.config["weight_decay"],
         )
-        self.scheduler = get_linear_schedule_with_warmup(
-            self.optimizer,
-            num_warmup_steps=self.config["warmup_step"],
-            num_training_steps=t_total,
-        )
+        if self.config["scheduler"] == "linear":
+            self.scheduler = get_linear_schedule_with_warmup(
+                self.optimizer,
+                num_warmup_steps=self.config["warmup_step"],
+                num_training_steps=t_total,
+            )
+        elif self.config["scheduler"] == "cosine":
+            self.scheduler = lr_scheduler.CosineAnnealingWarmRestarts(
+                self.optimizer,
+                T_0=t_total // self.config["epoch"],
+                T_mult=self.config["T_1"],
+                eta_min=self.config["eta_min"],
+            )
 
     def train(self):
         best_val_loss = 1e10
