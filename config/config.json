@@ -6,11 +6,15 @@
     "dropout": 0.4,
     "cv_dim": 2048,
     "max_length": 256,
-    "nlp_model": "beomi/KcELECTRA-base",
+    "nlp_model": "monologg/koelectra-base-v3-discriminator",
     "cv_model": "inception_v3",
     "batch_size": 5,
     "weight_decay": 0.01,
     "warmup_step": 50,
     "learning_rate": 0.0005,
-    "epoch": 10
+    "epoch": 10,
+    "cv_transformer": false,
+    "scheduler": "linear",
+    "eta_min": 0.00005,
+    "T_1": 1
 }
