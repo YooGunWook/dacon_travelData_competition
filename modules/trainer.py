@@ -1,4 +1,5 @@
 import torch
+import tqdm
 from torch import nn
 from torch.optim import AdamW, lr_scheduler
 from torch.nn import functional as F
@@ -45,13 +46,10 @@ class Trainer(object):
         self.model.zero_grad()
         loss_is_save = False
         f1_is_save = False
-        print(
-            f"{'Epoch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val F1':^9} | {'loss_is_save':^9} | {'f1_is_save':^9} "
-        )
         for epoch in range(self.config["epoch"]):
             self.model.train()
             t_loss = 0
-            for step, batch in enumerate(self.train_loader):
+            for batch in tqdm.tqdm(self.train_loader):
                 cv_batch = batch[0].to(self.device)
                 nlp_inputs = batch[1].to(self.device)
                 nlp_attentions = batch[2].to(self.device)
@@ -63,7 +61,6 @@ class Trainer(object):
                 t_loss += loss.item()
                 scaler.scale(loss).backward()
                 scaler.unscale_(self.optimizer)
-                # exploding gradients를 방지
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 scaler.step(self.optimizer)
                 self.scheduler.step()
@@ -79,6 +76,9 @@ class Trainer(object):
                 best_f1_score = val_f1
                 f1_is_save = True
                 torch.save(self.model.state_dict(), "./model/model_f1_res.pt")
+            print(
+                f"{'Epoch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val F1':^9} | {'loss_is_save':^9} | {'f1_is_save':^9} "
+            )
             print(
                 f"{epoch + 1:^7} | {t_loss / len(self.train_loader):^12} | {val_loss:^10} | {val_f1:^9} | {loss_is_save:^9} | {f1_is_save:^9} "
             )
