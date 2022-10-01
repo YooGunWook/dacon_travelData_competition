@@ -7,6 +7,8 @@ from torch.cuda.amp import GradScaler, autocast
 from transformers import get_linear_schedule_with_warmup
 from sklearn.metrics import f1_score
 
+from modules.margin_loss import ArcFace, MVArcSoftmax, CurricularFace
+
 
 class Trainer(object):
     def __init__(self, model, train_dataloader, valid_dataloader, config, device):
@@ -19,6 +21,18 @@ class Trainer(object):
     def build_model(self):
         self.model.to(self.device)
         self.loss = nn.CrossEntropyLoss()
+        if self.config["loss_type"] == "arcface":
+            self.metric_fn = ArcFace(256, self.config["num_classes"], s=64, m=0.5).to(
+                self.device
+            )
+        elif self.config["loss_type"] == "mv-softmax":
+            self.metric_fn = MVArcSoftmax(
+                256, self.config["num_classes"], s=64, m=0.5
+            ).to(self.device)
+        elif self.config["loss_type"] == "curricularface":
+            self.metric_fn = CurricularFace(
+                256, self.config["num_classes"], s=64, m=0.5
+            ).to(self.device)
         t_total = len(self.train_loader) * self.config["epoch"]
         self.optimizer = AdamW(
             self.model.parameters(),
@@ -46,6 +60,7 @@ class Trainer(object):
         self.model.zero_grad()
         loss_is_save = False
         f1_is_save = False
+
         for epoch in range(self.config["epoch"]):
             self.model.train()
             t_loss = 0
@@ -56,8 +71,16 @@ class Trainer(object):
                 labels = batch[3].to(self.device)
                 batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
                 with autocast():
-                    outputs = self.model(batch_dict, cv_batch)
-                loss = self.loss(outputs, labels)
+                    outputs, features = self.model(batch_dict, cv_batch)
+                    loss = self.loss(outputs, labels)
+                    if self.config["loss_type"] in [
+                        "mv-softmax",
+                        "curricularface",
+                        "arcface",
+                    ]:
+                        arc_output = self.metric_fn(features, labels)
+                        arc_loss = self.loss(arc_output, labels)
+                        loss += arc_loss
                 t_loss += loss.item()
                 scaler.scale(loss).backward()
                 scaler.unscale_(self.optimizer)
@@ -99,8 +122,17 @@ class Trainer(object):
             batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
             labels = batch[3].to(self.device)
             with torch.no_grad():
-                outputs = self.model(batch_dict, cv_batch)
+                outputs, features = self.model(batch_dict, cv_batch)
             loss = self.loss(outputs, labels)
+            if self.config["loss_type"] in [
+                "mv-softmax",
+                "curricularface",
+                "arcface",
+            ]:
+                arc_output = self.metric_fn(features, labels)
+                arc_loss = self.loss(arc_output, labels)
+                loss += arc_loss
+            t_loss += loss.item()
             fin_loss += loss.item()
             pred = (
                 torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()

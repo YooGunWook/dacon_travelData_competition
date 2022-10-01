@@ -17,4 +17,4 @@ class MultiModalClassifier(nn.Module):
         concat_output = torch.cat([nlp_output, cv_output], dim=1)
         concat_output = self.dropout(self.relu(concat_output))
         output = self.layer(concat_output)
-        return output
+        return output, concat_output
