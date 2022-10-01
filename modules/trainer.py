@@ -132,7 +132,6 @@ class Trainer(object):
                 arc_output = self.metric_fn(features, labels)
                 arc_loss = self.loss(arc_output, labels)
                 loss += arc_loss
-            t_loss += loss.item()
             fin_loss += loss.item()
             pred = (
                 torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()
