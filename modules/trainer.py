@@ -71,7 +71,10 @@ class Trainer(object):
                 labels = batch[3].to(self.device)
                 batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
                 with autocast():
-                    outputs, features = self.model(batch_dict, cv_batch)
+                    if self.config["only_nlp"]:
+                        outputs = self.model(batch_dict)
+                    else:
+                        outputs, features = self.model(batch_dict, cv_batch)
                     loss = self.loss(outputs, labels)
                     if self.config["loss_type"] in [
                         "mv-softmax",
@@ -122,7 +125,10 @@ class Trainer(object):
             batch_dict = {"input_ids": nlp_inputs, "attention_mask": nlp_attentions}
             labels = batch[3].to(self.device)
             with torch.no_grad():
-                outputs, features = self.model(batch_dict, cv_batch)
+                if self.config["only_nlp"]:
+                    outputs = self.model(batch_dict)
+                else:
+                    outputs, features = self.model(batch_dict, cv_batch)
             loss = self.loss(outputs, labels)
             if self.config["loss_type"] in [
                 "mv-softmax",

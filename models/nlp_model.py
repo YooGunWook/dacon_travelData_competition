@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+
 class TextCNN(nn.Module):
     def __init__(self, embedding_dim, kernel_list, num_filters, drop_rate):
         super(TextCNN, self).__init__()
@@ -31,23 +32,21 @@ class TextCNN(nn.Module):
             ]
         )
         self.batch_norms = nn.ModuleList(
-            [
-                nn.BatchNorm1d(num_filters)
-                for _ in kernel_list
-            ]
+            [nn.BatchNorm1d(num_filters) for _ in kernel_list]
         )
         self.dropout = nn.Dropout(drop_rate)
         self.fc = nn.Linear(len(kernel_list) * num_filters, 128)
 
     def forward(self, x):
         x = x.transpose(1, 2)
-        x = [F.relu(self.batch_norms[idx](conv(x))) for idx, conv in enumerate(self.conv)]
+        x = [
+            F.relu(self.batch_norms[idx](conv(x))) for idx, conv in enumerate(self.conv)
+        ]
         x = [self.dropout(vec) for vec in x]
         x = [F.max_pool1d(c, c.size(-1)).squeeze(dim=-1) for c in x]
         feature = torch.cat(x, dim=1)
         x = self.fc(feature)
         return x, feature
-
 
 
 class NLPModel(nn.Module):
@@ -62,7 +61,14 @@ class NLPModel(nn.Module):
             self.encoder_layer, num_layers=self.config["num_layers"]
         )
 
-        self.linear = nn.Linear(self.config["d_model"], 128)
+        self.linear_modal = nn.Linear(self.config["d_model"], 128)
+        self.linear_nlp1 = nn.Linear(self.config["d_model"], 512)
+        self.linear_nlp2 = nn.Linear(512, 256)
+        self.linear_nlp3 = nn.Linear(256, self.config["num_classes"])
+        self.relu = nn.LeakyReLU()
+        self.dropout = nn.Dropout(0.3)
+        self.batchnorm1 = nn.BatchNorm1d(512)
+        self.batchnorm2 = nn.BatchNorm1d(256)
         # self.textcnn = TextCNN(self.config["d_model"], [2,3,4,5], 256, 0.3)
 
     def forward(self, inputs):
@@ -75,7 +81,17 @@ class NLPModel(nn.Module):
             head_attention.append(fin_attn.expand(self.config["n_head"], -1, -1))
         head_attention = torch.cat(head_attention)
         outputs = self.transformer(outputs, mask=head_attention)[:, 0, :]
-        outputs = self.linear(outputs)
+        if not self.config["only_nlp"]:
+            outputs = self.linear(outputs)
+        else:
+            outputs = self.dropout(
+                self.relu(self.batchnorm1(self.linear_nlp1(outputs)))
+            )
+            outputs = self.dropout(
+                self.relu(self.batchnorm2(self.linear_nlp2(outputs)))
+            )
+            outputs = self.linear_nlp3(outputs)
+
         # outputs = self.transformer(outputs, mask=head_attention)
         # outputs, _ = self.textcnn(outputs)
         return outputs

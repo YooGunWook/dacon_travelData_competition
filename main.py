@@ -1,5 +1,6 @@
 import os
 import json
+from tkinter import Y
 import timm  # torch image models (like huggingface library)
 import torch
 import random
@@ -44,6 +45,7 @@ def test_model(model, test_dataloader, device=None):
         with torch.no_grad():
             outputs = model(batch_dict, cv_batch)
         pred = torch.argmax(outputs, dim=1).flatten().detach().cpu().numpy().tolist()
+
         pred_list += pred
 
     return pred_list

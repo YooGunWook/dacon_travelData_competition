@@ -17,5 +17,6 @@
     "scheduler": "cosine",
     "eta_min": 0.00000005,
     "T_1": 1,
-    "loss_type": "curricularface"
+    "loss_type": "curricularface",
+    "only_nlp": true
 }
